@@ -18,12 +18,16 @@ public class EquipamentoEntity extends AbstractEquipamento {
         super(nome, CorEquipamento.AZUL);
     }
 
-    public String getNome() {
-        return getName();
+    public Long getId() {
+        return id;
     }
 
-    public void setNome(String nome) {
-        setName(nome);
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getNome() {
+        return getName();
     }
 
     @Override

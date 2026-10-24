@@ -4,7 +4,7 @@ import java.util.Objects;
 
 public abstract class AbstractEquipamento implements Equipamento {
 
-    protected String name;
+    protected final String name;
     protected final CorEquipamento cor;
 
     protected AbstractEquipamento(String name, CorEquipamento cor) {
@@ -18,18 +18,8 @@ public abstract class AbstractEquipamento implements Equipamento {
     }
 
     @Override
-    public void setName(String name) {
-        this.name = normalizeName(name);
-    }
-
-    @Override
     public CorEquipamento getCor() {
         return cor;
-    }
-
-    @Override
-    public String getColour() {
-        return cor.name();
     }
 
     protected String normalizeName(String value) {

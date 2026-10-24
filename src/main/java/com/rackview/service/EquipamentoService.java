@@ -41,10 +41,11 @@ public class EquipamentoService {
         EquipamentoEntity equipamento = equipamentoRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Equipamento não encontrado: " + id));
 
-        equipamento.setNome(requestDTO.getNome());
+        EquipamentoEntity atualizado = new EquipamentoEntity(requestDTO.getNome());
+        atualizado.setId(equipamento.getId());
 
-        EquipamentoEntity atualizado = equipamentoRepository.save(equipamento);
-        return converterParaResponse(atualizado);
+        EquipamentoEntity salvo = equipamentoRepository.save(atualizado);
+        return converterParaResponse(salvo);
     }
 
     public void deletar(Long id) {

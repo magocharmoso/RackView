@@ -1,152 +1,150 @@
 # Domain Rules — RackView
 
-## 1. Modelo de domínio
+## 1. Objetivo do domínio
 
-A estrutura do domínio deve seguir esta ideia:
+O domínio da aplicação representa a infraestrutura de rede:
 
-- `Equipamento` é uma interface pública
-- as implementações concretas são: `Switch`, `Router`, `SateliteRouter`, `Servidor`, `Firewall`
-- o nome do equipamento fica na interface como contrato mínimo
-- a lógica comum pode viver numa classe abstrata interna/package-private, mas a API pública continua a ser a interface
+- `DataCenter` contém bastidores
+- `Bastidor` contém equipamentos
+- `Equipamento` é a abstração do que o utilizador regista no bastidor
+- os bastidores e data centers são fixos e configurados pela app
+- o utilizador apenas regista equipamentos dentro dos bastidores existentes
 
-Recomendação prática:
+## 2. Regra geral de sanitização
 
-- `Equipamento` define apenas o contrato essencial
-- `AbstractEquipamento` guarda a implementação comum de `name` e `colour`
-- as classes concretas apenas implementam o comportamento específico de cada tipo
+Todos os inputs de equipamento passam por uma sanitização antes de serem validados.
 
-### Interface pública recomendada
+### Regras de sanitização:
 
-```java
-public interface Equipamento {
-    String getName();
-    void setName(String name);
-    String getColour();
-}
-```
+- remover espaços em branco
+- remover tabs, múltiplos espaços e quebra de linha
+- rejeitar input vazio
+- converter para maiúsculas todos os equipamentos que não sejam servidores
+- manter servidores sem transformação de maiúsculas, conforme a regra do domínio
 
-Esta abordagem mantém a API simples e clara. O utilizador usa sempre a interface, mas as implementações concretas têm regras específicas.
+Exemplo:
 
-## 2. Padrão recomendado
+- `gt 01` → `GT01`
+- `sw core` → `SWCORE`
+- `fw lan` → `FWLAN`
+- `servidor db` → `servidor db`
 
-Para evitar duplicação de código, o melhor padrão aqui é:
-
-- interface: `Equipamento`
-- classe abstrata: `AbstractEquipamento`
-- classes concretas: `Switch`, `Router`, `SateliteRouter`, `Servidor`, `Firewall`
-
-### Porquê não usar só interface?
-
-Porque, em Java, uma interface não pode ter campos concretos nem lógica de base compartilhada. Se o contrato for apenas `name` + `getColour`, a interface fica muito simples, mas a implementação comum precisa de uma base abstrata para não repetir código.
-
-Em resumo:
-
-- interface = contrato público
-- classe abstrata = implementação comum
-- classes concretas = regras de negócio específicas
-
-## 3. Regras de nomenclatura
+## 3. Regras de nome dos equipamentos
 
 ### 3.1 Switch
 
-- o nome deve começar por `SW`
-- exemplo válido: `SW-01`, `SW-Core`, `SW-Access`
-- o sistema deve validar o prefixo antes de aceitar o equipamento
+- deve começar por `SW`
+- exemplos válidos: `SW01`, `SW-CORE`, `SWCORE`
+- o sistema converte para maiúsculas
 
 ### 3.2 Router
 
-- o nome deve começar por `GT`
-- exemplo válido: `GT-01`, `GT-Core`, `GT-Edge`
+- deve começar por `GT`
+- exemplos válidos: `GT01`, `GT6`, `GT-EDGE`
+- o sistema converte para maiúsculas
 
 ### 3.3 Firewall
 
-- regra que se pediu: deve começar por `SW`
-- exemplo válido: `SW-FW-01`
-- atenção: se mais tarde quiserem distinguir claramente switches e firewalls, a regra recomendada passa a ser `FW`, mas neste domínio seguimos a regra pedida: `SW` também para firewalls
+- deve começar por `FW`
+- exemplos válidos: `FW01`, `FW-CORE`, `FWLAN`
+- o sistema converte para maiúsculas
 
-### 3.4 Satelite de Router
+### 3.4 Servidor
 
-- o nome deve começar por `Sat`
-- o formato esperado é `SatXYZ`, onde:
-  - `X` = número sequencial
-  - `YZ` = identificador do router ao qual o satélite está ligado
-- o primeiro satélite de um router deve ser gerado como:
-  - `Sat1GT01`
-  - ou, se o router for `GT-01`, então a convenção normalizada pode ser `Sat1GT-01`
-- a regra prática mais estável é:
-  - remover caracteres de separação (`-`, `_`, espaço)
-  - manter: `Sat1GT01`
+- não existe prefixo obrigatório
+- pode ser qualquer nome válido
+- não é convertido para maiúsculas
 
-### 3.5 Regra do satélite
+### 3.5 Satélite
 
-O `SateliteRouter` deve ter um `Router pai` obrigatório.
+- deve começar por `Sat`
+- formato aceitável: `SatXYZ` ou `SatXY`
+- exemplos válidos:
+  - `Sat1GT6`
+  - `Sat2GT9`
+  - `Sat1GT12`
+  - `Sat3GT3`
 
-- o construtor deve receber apenas o router pai
-- o sistema gera automaticamente o nome do satélite
-- o satélite deve estar no mesmo `Bastidor` do router pai
-- por enquanto, esta regra é validada no próprio domínio e no serviço que cria o satélite
+Regra importante:
+
+- `Sat` significa “satélite de router”
+- o nome do satélite deriva do router pai
+- se o router for `GT6`, o satélite pode ser `Sat1GT6`
+- se o router for `GT12`, o satélite pode ser `Sat1GT12`
+
+O nome do satélite deve ser gerado automaticamente pelo sistema e não configurado livremente pelo utilizador.
+
+## 4. Regra do satélite
+
+O satélite possui obrigatoriamente um `Router` pai.
+
+- o construtor recebe o router pai
+- o nome é gerado automaticamente
+- a validação assegura que o formato é `SatXYZ` ou `SatXY`
+- por enquanto, o satélite deve pertencer ao mesmo bastidor do router pai
+
+## 5. Fábrica de equipamentos
+
+Para simplificar o uso do utilizador, criámos uma `EquipamentoFactory`.
+
+A ideia é esta:
+
+- o utilizador chama uma única operação de registo
+- o sistema normaliza o input
+- a fábrica decide o tipo do equipamento
+- o sistema cria a implementação correta
 
 Exemplo:
 
 ```java
-Router pai = new Router("GT-01");
-SateliteRouter sat = new SateliteRouter(pai);
-// sat.getName() -> "Sat1GT01"
+Equipamento e1 = EquipamentoFactory.criar("gt-01", null);
+Equipamento e2 = EquipamentoFactory.criar("sw-core", null);
+Equipamento e3 = EquipamentoFactory.criar("fw-lan", null);
+Equipamento e4 = EquipamentoFactory.criar("servidor-db", null);
 ```
 
-## 4. Regra de criação automática do satélite
+A fábrica deve seguir esta ordem:
 
-O construtor do satélite deve funcionar assim:
+1. satélite
+2. router
+3. switch
+4. firewall
+5. servidor
 
-- recebe apenas o `Router` pai
-- lê o nome do router pai
-- calcula o próximo índice sequencial para esse router
-- gera o nome do satélite
-- valida que o satélite e o pai pertencem ao mesmo `Bastidor`
+## 6. Praticidade da abordagem
 
-Pseudocódigo:
+A utilização de uma única operação para registar o equipamento é prática porque:
 
-```java
-public SateliteRouter(Router pai) {
-    this.pai = Objects.requireNonNull(pai);
-    this.name = gerarNomeAutomatico(pai);
-    validarMesmoBastidor(pai, this);
-}
-```
+- reduz a fricção para o utilizador
+- centraliza as regras de negócio
+- evita que cada endpoint tenha lógica diferente
+- torna a validação consistente em todo o domínio
 
-## 5. Cor (colour)
+O trade-off é que a fábrica precisa de seguir regras muito claras para inferir o tipo corretamente. Se o input não respeitar a convenção, o sistema rejeita.
 
-A cor é um getter obrigatório da interface:
+## 7. Arquitetura recomendada
 
-```java
-String getColour();
-```
+A estrutura recomendada é:
 
-A implementação pode ser:
+- interface: `Equipamento`
+- classe abstrata: `AbstractEquipamento`
+- classes concretas: `Switch`, `Router`, `Firewall`, `Servidor`, `SateliteRouter`
+- fábrica: `EquipamentoFactory`
 
-- fixa por tipo (`Switch` = azul, `Router` = verde, etc.)
-- ou determinada por uma tabela de cores
-- ou calculada por regra de negócio
+Isto oferece:
 
-O importante é que a cor seja uma característica do equipamento e não da infraestrutura.
+- domínio limpo
+- validação no local certo
+- regras repetíveis
+- pouca complexidade para o utilizador
 
-## 6. Integridade do domínio
+## 8. Resumo da regra final
 
-As regras de negócio devem estar no domínio, não na camada REST.
-
-Isso significa que:
-
-- `SateliteRouter` valida o pai
-- `Router` e `Bastidor` controlam o contexto em que o equipamento vive
-- `Equipamento` apenas garante o contrato mínimo
-
-## 7. Recomendação final
-
-A abordagem correta para este projeto é:
-
-- manter `Equipamento` como interface
-- usar `AbstractEquipamento` para evitar repetição
-- usar classes concretas por tipo
-- validar nome, cor e relacionamento do satélite no próprio domínio
-
-Assim o sistema fica simples, extensível e coerente com a regra de negócio que pediste.
+- sem espaços no nome
+- nomes de equipamentos (exceto servidores) em maiúsculas
+- firewalls começam em `FW`
+- switches começam em `SW`
+- routers começam em `GT`
+- satélites começam em `Sat`
+- satélite gera nome automaticamente pelo router pai
+- utilização de uma fábrica para inferir o tipo do equipamento

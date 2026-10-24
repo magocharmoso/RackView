@@ -10,7 +10,7 @@ public final class EquipamentoFactory {
     public static Equipamento criar(String nome, Router pai) {
         String nomeSanitizado = sanitizar(nome);
 
-        if (pai != null && nomeSanitizado.startsWith("Sat")) {
+        if (pai != null && nomeSanitizado.startsWith("SAT")) {
             return new SateliteRouter(pai, nomeSanitizado);
         }
 
@@ -26,8 +26,12 @@ public final class EquipamentoFactory {
             return new Firewall(nomeSanitizado);
         }
 
-        if (nomeSanitizado.startsWith("SRV")) {
-            return new Servidor(nomeSanitizado);
+        if (nomeSanitizado.startsWith("ODF")) {
+            return new ODF(nomeSanitizado);
+        }
+
+        if (nomeSanitizado.startsWith("OOBM") || nomeSanitizado.endsWith("OOBM")) {
+            return new OOBM(nomeSanitizado);
         }
 
         return new Servidor(nomeSanitizado);
@@ -44,7 +48,7 @@ public final class EquipamentoFactory {
             throw new IllegalArgumentException("O nome do equipamento não pode ficar vazio");
         }
 
-        if (!semEspacos.startsWith("SRV")) {
+        if (semEspacos.startsWith("SAT") || semEspacos.startsWith("GT") || semEspacos.startsWith("SW") || semEspacos.startsWith("FW") || semEspacos.startsWith("ODF") || semEspacos.startsWith("OOBM") || semEspacos.endsWith("OOBM")) {
             return semEspacos.toUpperCase(Locale.ROOT);
         }
 

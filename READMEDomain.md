@@ -20,14 +20,15 @@ Todos os inputs de equipamento passam por uma sanitização antes de serem valid
 - remover tabs, múltiplos espaços e quebra de linha
 - rejeitar input vazio
 - converter para maiúsculas todos os equipamentos que não sejam servidores
-- manter servidores sem transformação de maiúsculas, conforme a regra do domínio
+- manter servidores como default caso o nome não encaixe em nenhuma regra específica
 
 Exemplo:
 
 - `gt 01` → `GT01`
 - `sw core` → `SWCORE`
 - `fw lan` → `FWLAN`
-- `servidor db` → `servidor db`
+- `oobm core` → `OOBMCORE`
+- `server-db` → `server-db`
 
 ## 3. Regras de nome dos equipamentos
 
@@ -49,13 +50,20 @@ Exemplo:
 - exemplos válidos: `FW01`, `FW-CORE`, `FWLAN`
 - o sistema converte para maiúsculas
 
-### 3.4 Servidor
+### 3.4 OOBM
 
+- deve começar ou terminar com `OOBM`
+- exemplos válidos: `OOBM-CORE`, `CORE-OOBM`, `OOBMCORE`
+- o sistema converte para maiúsculas
+
+### 3.5 Servidor
+
+- é a opção padrão quando nada encaixa nas regras anteriores
 - não existe prefixo obrigatório
-- pode ser qualquer nome válido
 - não é convertido para maiúsculas
+- exemplos válidos: `server-db`, `db-prod`, `app01`
 
-### 3.5 Satélite
+### 3.6 Satélite
 
 - deve começar por `Sat`
 - formato aceitável: `SatXYZ` ou `SatXY`
@@ -71,8 +79,6 @@ Regra importante:
 - o nome do satélite deriva do router pai
 - se o router for `GT6`, o satélite pode ser `Sat1GT6`
 - se o router for `GT12`, o satélite pode ser `Sat1GT12`
-
-O nome do satélite deve ser gerado automaticamente pelo sistema e não configurado livremente pelo utilizador.
 
 ## 4. Regra do satélite
 
@@ -100,7 +106,8 @@ Exemplo:
 Equipamento e1 = EquipamentoFactory.criar("gt-01", null);
 Equipamento e2 = EquipamentoFactory.criar("sw-core", null);
 Equipamento e3 = EquipamentoFactory.criar("fw-lan", null);
-Equipamento e4 = EquipamentoFactory.criar("servidor-db", null);
+Equipamento e4 = EquipamentoFactory.criar("oobm-core", null);
+Equipamento e5 = EquipamentoFactory.criar("server-db", null);
 ```
 
 A fábrica deve seguir esta ordem:
@@ -109,7 +116,8 @@ A fábrica deve seguir esta ordem:
 2. router
 3. switch
 4. firewall
-5. servidor
+5. OOBM
+6. servidor (default)
 
 ## 6. Praticidade da abordagem
 
@@ -128,7 +136,7 @@ A estrutura recomendada é:
 
 - interface: `Equipamento`
 - classe abstrata: `AbstractEquipamento`
-- classes concretas: `Switch`, `Router`, `Firewall`, `Servidor`, `SateliteRouter`
+- classes concretas: `Switch`, `Router`, `Firewall`, `OOBM`, `Servidor`, `SateliteRouter`
 - fábrica: `EquipamentoFactory`
 
 Isto oferece:
@@ -145,6 +153,8 @@ Isto oferece:
 - firewalls começam em `FW`
 - switches começam em `SW`
 - routers começam em `GT`
+- OOBM começa ou termina com `OOBM`
 - satélites começam em `Sat`
+- servidor é a opção default quando nada encaixa nas regras
 - satélite gera nome automaticamente pelo router pai
 - utilização de uma fábrica para inferir o tipo do equipamento
